@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>La Torre de los Bucles 3D</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--panel:rgba(255,255,255,.93);--ink:#12263f;--mut:#5a6e86;--ok:#1f9d5c;--bad:#d1343a;--Z:#3b82f6;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--panel:rgba(16,36,62,.93);--ink:#eaf2fb;--mut:#9db3cc}}
+:root[data-theme="dark"]{--panel:rgba(16,36,62,.93);--ink:#eaf2fb;--mut:#9db3cc}
+*{box-sizing:border-box}
+html{height:100%;background:#8ed0f5;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{height:100%;margin:0;overflow:hidden;position:relative;background:#8ed0f5;color:var(--ink);font-family:Fredoka,system-ui,sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#hud{position:absolute;inset:0;pointer-events:none;padding:10px;display:flex;flex-direction:column;align-items:center;gap:8px}
+#top{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.pill{background:var(--panel);color:var(--ink);border:0;border-radius:999px;padding:6px 14px;font:700 1rem Fredoka,system-ui,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.22)}
+#mu,#pa{pointer-events:auto;cursor:pointer}
+#top.low #tm{color:var(--bad);display:inline-block;animation:pu .5s infinite alternate}
+@keyframes pu{to{transform:scale(1.3)}}
+#tbar{width:min(420px,90%);height:8px;border-radius:9px;background:rgba(255,255,255,.5);overflow:hidden}
+#tb{display:block;height:100%;width:100%;background:linear-gradient(90deg,#2bb673,#f5b700)}
+.card{background:var(--panel);border-radius:16px;padding:12px 16px;box-shadow:0 4px 18px rgba(0,0,0,.25)}
+#plan{max-width:min(560px,94%)}
+#plan .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:3px 0;font-weight:600}
+#plan .row>span:first-child{color:var(--mut);min-width:70px;font-size:.85rem}
+#goalc{display:flex;flex-wrap:wrap}
+.ch{display:inline-block;width:22px;height:22px;border-radius:6px;border:2px solid rgba(0,0,0,.3);margin:0 2px;vertical-align:middle}
+.ch.e{border-style:dashed;background:transparent}
+#toast{position:absolute;left:50%;bottom:20%;transform:translateX(-50%) scale(.9);max-width:90%;text-align:center;background:var(--ok);color:#fff;font-weight:700;padding:10px 18px;border-radius:14px;opacity:0;transition:.2s;pointer-events:none}
+#toast.bad{background:var(--bad)}
+#toast.show{opacity:1;transform:translateX(-50%) scale(1)}
+#ov{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,30,60,.5);padding:16px}
+#ov .card{max-width:470px;text-align:center;padding:22px}
+#ov h1{margin:0 0 8px;font-size:1.8rem}
+#ov p{margin:6px 0;line-height:1.4;color:var(--mut)}
+#ov b{color:var(--ink)}
+.btn{margin-top:12px;padding:12px 26px;border-radius:12px;border:0;background:var(--ok);color:#fff;font:700 1.1rem Fredoka,system-ui,sans-serif;cursor:pointer}
+button:focus-visible{outline:3px solid var(--Z);outline-offset:2px}
+#ov .btn{display:block;width:100%}#ov .btn.s{background:var(--Z)}#ov .btn.off{opacity:.5}#ov .card{max-height:100%;overflow:auto;touch-action:pan-y}
+#joy,#jb{display:none;position:absolute;border-radius:50%;background:rgba(255,255,255,.28);border:3px solid rgba(255,255,255,.7)}
+#joy{left:22px;bottom:26px;width:120px;height:120px}
+#joy i{position:absolute;left:50%;top:50%;width:50px;height:50px;margin:-25px;border-radius:50%;background:rgba(255,255,255,.8)}
+#jb{right:24px;bottom:40px;width:78px;height:78px;font:700 1.6rem Fredoka;color:#fff}
+@media (pointer:coarse){#joy,#jb{display:block}}
+</style>
+</head>
+<body>
+<div id="hud">
+<div id="top"><div class="pill">⏱ <b id="tm">45</b> s</div><div class="pill">⭐ <b id="sc">0</b></div><div class="pill" id="cb">🔥 x1</div><div class="pill" id="rd">Torre 1</div><button class="pill" id="mu" aria-label="Sonido">🔊</button><button class="pill" id="pa" aria-label="Pausa">⏸</button></div>
+<div id="tbar"><i id="tb"></i></div>
+<div id="plan" class="card"><div class="row"><span>Meta</span><div id="goalc"></div></div><div class="row"><span>Programa</span><div id="progc"></div></div></div>
+</div>
+<div id="toast"></div>
+<div id="joy"><i></i></div><button id="jb" aria-label="Saltar">⤒</button>
+<div id="ov"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const CS={R:'#e5484d',A:'#f5b700',V:'#2bb673',Z:'#3b82f6'},K=['R','A','V','Z'],NM={R:'rojo',A:'amarillo',V:'verde',Z:'azul'};
+const $=i=>document.getElementById(i),rnd=(a,b)=>a+Math.random()*(b-a),ri=(a,b)=>Math.floor(rnd(a,b+1)),shuf=a=>a.map(v=>[Math.random(),v]).sort((x,y)=>x[0]-y[0]).map(x=>x[1]);
+const ren=new THREE.WebGLRenderer({antialias:true});ren.setPixelRatio(Math.min(devicePixelRatio,2));ren.shadowMap.enabled=true;document.body.prepend(ren.domElement);
+const sc=new THREE.Scene();sc.background=new THREE.Color(0x8ed0f5);sc.fog=new THREE.Fog(0x8ed0f5,45,130);
+const cam=new THREE.PerspectiveCamera(60,1,.1,300);
+sc.add(new THREE.HemisphereLight(0xffffff,0x6aa36a,.95));
+const sun=new THREE.DirectionalLight(0xfff2cc,.9);sun.position.set(25,40,15);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);Object.assign(sun.shadow.camera,{left:-45,right:45,top:45,bottom:-45,far:120});sc.add(sun);
+const M=(c,o)=>new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:.8},o||{}));
+const mesh=(g,m,x,y,z,p)=>{const o=new THREE.Mesh(g,m);o.position.set(x,y,z);o.castShadow=o.receiveShadow=true;(p||sc).add(o);return o};
+// mundo
+const wt=mesh(new THREE.PlaneGeometry(500,500),M(0x3aa0e0,{transparent:true,opacity:.88,roughness:.3}),0,-1.3,0);wt.rotation.x=-Math.PI/2;wt.castShadow=false;
+mesh(new THREE.CylinderGeometry(42,38,3,48),M(0xf0dba0),0,-1.6,0);
+mesh(new THREE.CylinderGeometry(40,40,3,48),M(0x6cc070),0,-1.5,0);
+const trees=[];
+for(let i=0;i<30;i++){const a=rnd(0,6.283),r=rnd(15,35),x=Math.cos(a)*r,z=Math.sin(a)*r,s=rnd(.8,1.5),g=new THREE.Group();g.position.set(x,0,z);g.scale.setScalar(s);sc.add(g);
+mesh(new THREE.CylinderGeometry(.25,.35,1.6,8),M(0x8b5a2b),0,.8,0,g);mesh(new THREE.ConeGeometry(1.5,2.6,8),M(0x2f9e5b),0,2.8,0,g);mesh(new THREE.ConeGeometry(1.1,2,8),M(0x38b06a),0,4.1,0,g);trees.push({x,z,r:1.1*s})}
+const FG=new THREE.SphereGeometry(.16,6,6);
+for(let i=0;i<80;i++){const a=rnd(0,6.283),r=rnd(4,38),f=new THREE.Mesh(FG,M(['#ff8fab','#ffffff','#ffd166','#c77dff'][i%4]));f.position.set(Math.cos(a)*r,.15,Math.sin(a)*r);sc.add(f)}
+const clouds=[];
+for(let i=0;i<9;i++){const g=new THREE.Group();for(let j=0;j<4;j++){const m=new THREE.Mesh(new THREE.SphereGeometry(rnd(2,3.5),12,10),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.9}));m.position.set(j*2.4,rnd(-.5,.5),rnd(-1,1));g.add(m)}g.position.set(rnd(-90,90),rnd(22,34),rnd(-90,60));sc.add(g);clouds.push(g)}
+function label(t,x,y,z,w){const cv=document.createElement('canvas');cv.width=256;cv.height=96;const c=cv.getContext('2d');c.fillStyle='rgba(18,38,63,.88)';c.beginPath();if(c.roundRect)c.roundRect(8,8,240,80,24);else c.rect(8,8,240,80);c.fill();c.fillStyle='#fff';c.font='700 44px Fredoka,sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText(t,128,50);const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv)}));s.scale.set(w,w*.375,1);s.position.set(x,y,z);sc.add(s)}
+mesh(new THREE.CylinderGeometry(3.2,3.5,.5,32),M(0xc9d6e6),0,.05,0);
+mesh(new THREE.CylinderGeometry(1.8,2,.4,24),M(0xffe3a3),-8,0,0);
+label('TU TORRE',0,10.8,0,5);label('META',-8,10.8,0,4);
+const BH=.7,BG=new THREE.BoxGeometry(2.2,BH-.06,2.2),tw=new THREE.Group(),gh=new THREE.Group();tw.position.set(0,.3,0);gh.position.set(-8,.2,0);sc.add(tw,gh);
+function blk(g,c,i,gs){const m=mesh(BG,M(CS[c],gs?{transparent:true,opacity:.5}:{emissive:CS[c],emissiveIntensity:.12}),0,0,0,g);m.userData.ty=i*BH+BH/2;m.position.y=m.userData.ty+(gs?0:8);return m}
+// aros de repeticiones
+const rings=[0,1,2].map(i=>{const th=(i-1)*.7,x=Math.sin(th)*10,z=Math.cos(th)*10,g=new THREE.Group();g.position.set(x,1.9,z);g.rotation.y=th;sc.add(g);
+const tor=mesh(new THREE.TorusGeometry(1.7,.2,12,36),M(0x8899aa,{emissive:0x8899aa,emissiveIntensity:.2}),0,0,0,g);
+const cv=document.createElement('canvas');cv.width=cv.height=128;const tx=new THREE.CanvasTexture(cv),sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx}));sp.scale.set(2.2,2.2,1);g.add(sp);return{g,tor,cv,tx,x,z,n:0}});
+function drawRing(r,n){const c=r.cv.getContext('2d');c.clearRect(0,0,128,128);c.fillStyle='rgba(18,38,63,.88)';c.beginPath();c.arc(64,64,56,0,7);c.fill();c.fillStyle='#fff';c.font='700 58px Fredoka,sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText('×'+n,64,68);r.tx.needsUpdate=true}
+// personaje
+const pl=new THREE.Group();sc.add(pl);
+mesh(new THREE.BoxGeometry(.9,1,.6),M(0x3b82f6),0,1.1,0,pl);mesh(new THREE.SphereGeometry(.4,16,12),M(0xffd2a8),0,1.95,0,pl);
+mesh(new THREE.SphereGeometry(.45,16,8,0,Math.PI*2,0,Math.PI/2),M(0xf5b700),0,2.05,0,pl);
+[-.15,.15].forEach(x=>mesh(new THREE.SphereGeometry(.06,8,8),M(0x12263f),x,1.98,.36,pl));
+const lim=(x,y,l)=>{const g=new THREE.Group();g.position.set(x,y,0);pl.add(g);mesh(new THREE.BoxGeometry(.28,l,.32),M(l>.5?0x223355:0xffd2a8),0,-l/2,0,g);return g};
+const legs=[lim(-.2,.65,.65),lim(.2,.65,.65)],arms=[lim(-.6,1.55,.6),lim(.6,1.55,.6)];
+// estado
+let S={run:false,id:0},keys={},jx=0,jy=0,jr=0,yaw=0,pit=.45,dist=11,vx=0,vz=0,vy=0,best=0,mute=false,AC=null,T=0;
+const UP=[{k:'t',n:'⏱ Tiempo inicial',d:'+5 s al empezar cada partida',c:80,m:6},{k:'w',n:'⌛ Relojes mejorados',d:'+1 s extra por reloj dorado',c:120,m:3},{k:'m',n:'🧲 Imán de bloques',d:'recoges desde más lejos',c:100,m:3},{k:'s',n:'👟 Botas veloces',d:'+10% de velocidad',c:100,m:3}];
+let sv={bank:0,best:0,games:0,towers:0,diff:1,up:{t:0,w:0,m:0,s:0}};
+try{const o=JSON.parse(localStorage.getItem('tbl3d2')||'null');if(o)sv=Object.assign(sv,o,{up:Object.assign(sv.up,o.up)});else sv.best=+localStorage.getItem('tbl3d')||0}catch(e){}
+const save=()=>{try{localStorage.setItem('tbl3d2',JSON.stringify(sv))}catch(e){}};
+const pk=[],parts=[];
+function beep(f,d,t){if(mute)return;d=d||.12;try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();o.type=t||'sine';o.frequency.value=f;g.gain.setValueAtTime(.12,AC.currentTime);g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+d);o.connect(g);g.connect(AC.destination);o.start();o.stop(AC.currentTime+d)}catch(e){}}
+function toast(t,bad){const e=$('toast');e.textContent=t;e.className='show'+(bad?' bad':'');clearTimeout(toast.h);toast.h=setTimeout(()=>e.className='',2300)}
+const PG=new THREE.SphereGeometry(.12,6,6);
+function burst(x,y,z,col){for(let i=0;i<14;i++){const m=new THREE.Mesh(PG,new THREE.MeshBasicMaterial({color:col}));m.position.set(x,y,z);sc.add(m);parts.push({m,vx:rnd(-4,4),vy:rnd(3,8),vz:rnd(-4,4),l:.8})}}
+const CG=new THREE.BoxGeometry(.9,.9,.9),OG=new THREE.OctahedronGeometry(.7),BMG=new THREE.CylinderGeometry(.3,.3,7,10);
+function pickC(){return Math.random()<.65?S.pat[ri(0,S.pat.length-1)]:K[ri(0,3)]}
+function spawn(c){let x,z,n=0;do{const a=rnd(0,6.283),r=rnd(6,34);x=Math.cos(a)*r;z=Math.sin(a)*r;n++}while(n<30&&(trees.some(q=>Math.hypot(q.x-x,q.z-z)<2.5)||Math.hypot(x+8,z)<4.5));
+const col=c==='T'?'#ffd23f':CS[c],g=new THREE.Group(),m=mesh(c==='T'?OG:CG,M(col,{emissive:col,emissiveIntensity:.5}),0,1.5,0,g);
+mesh(BMG,new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.18,depthWrite:false}),0,3.5,0,g).castShadow=false;
+g.position.set(x,0,z);sc.add(g);pk.push({g,m,c,ph:rnd(0,6)})}
+function take(o){pk.splice(pk.indexOf(o),1);sc.remove(o.g);if(o.c!=='T')spawn(pickC())}
+// interfaz
+const chip=c=>'<i class="ch" style="background:'+CS[c]+'"></i>';
+function ui(){$('goalc').innerHTML=S.goal.map(chip).join('');
+$('progc').innerHTML='🔁 Repetir '+S.pat.map((c,i)=>S.prog[i]?chip(S.prog[i]):'<i class="ch e"></i>').join('')+' <b>× ?</b>';
+$('sc').textContent=S.score;$('cb').textContent='🔥 x'+S.combo;$('rd').textContent='Torre '+S.round}
+function newRound(){const r=S.round++,d=sv.diff,len=d===0?(r<2?1:2):d===1?(r<1?1:r<4?2:3):(r<1?2:r<3?3:4),reps=len>=4?ri(2,3):r<1?ri(3,4):ri(2,4);
+S.pat=shuf(K).slice(0,len);S.reps=reps;S.goal=[];for(let i=0;i<reps;i++)S.goal.push(...S.pat);S.prog=[];S.lock=false;
+const ord=shuf(shuf([2,3,4,5,6].filter(n=>n!==reps)).slice(0,2).concat(reps));rings.forEach((rg,i)=>{rg.n=ord[i];drawRing(rg,ord[i])});
+tw.children.slice().forEach(c=>tw.remove(c));gh.children.slice().forEach(c=>gh.remove(c));
+S.goal.forEach((c,i)=>blk(gh,c,i,1));
+pk.splice(0).forEach(o=>sc.remove(o.g));for(let i=0;i<14;i++)spawn(pickC());
+ui();toast('Mira la META: recoge el patrón en orden y elige el aro correcto')}
+function win(){S.lock=true;const id=S.id,g=S.goal,pts=(25+5*g.length)*S.combo;S.towers++;S.score+=pts;S.combo++;ui();toast('¡Torre completa! +'+pts+' puntos 🎉');
+g.forEach((c,i)=>setTimeout(()=>{if(S.id===id&&S.run){blk(tw,c,i);beep(300+i*45,.1,'triangle')}},i*90));
+setTimeout(()=>{if(S.id===id&&S.run){burst(0,g.length*BH+1,0,'#ffd23f');burst(0,g.length*BH+1,0,'#ffffff');beep(900,.3)}},g.length*90+200);
+setTimeout(()=>{if(S.id===id&&S.run)newRound()},g.length*90+1300)}
+function ov(h,b){b=typeof b==='string'?[[b,'play']]:b||[];$('ov').innerHTML='<div class="card">'+h+b.map(x=>'<button class="btn'+(x[2]||'')+'" data-a="'+x[1]+'">'+x[0]+'</button>').join('')+'</div>';$('ov').style.display='flex'}
+function menu(){S.run=false;S.paused=false;S.id++;$('plan').style.visibility='hidden';ov('<h1>🏗️ La Torre de los Bucles</h1><p>⭐ Banco: <b>'+sv.bank+'</b> · 🏆 Récord: <b>'+sv.best+'</b></p><p>Partidas: <b>'+sv.games+'</b> · Torres: <b>'+sv.towers+'</b> · Dificultad: <b>'+['Fácil','Normal','Difícil'][sv.diff]+'</b></p>',[['▶ Jugar','play'],['🛒 Tienda de mejoras','shop',' s'],['📖 Cómo jugar','help',' s'],['⚙ Ajustes','set',' s']])}
+function shop(m){ov('<h1>🛒 Tienda</h1><p>⭐ Banco: <b>'+sv.bank+'</b></p><p>'+(m||'Gasta tus estrellas para ganar más tiempo y velocidad.')+'</p>'+UP.map(u=>'<p><b>'+u.n+'</b> ('+sv.up[u.k]+'/'+u.m+') · '+u.d+'</p>').join(''),UP.map(u=>{const l=sv.up[u.k],c=u.c*(l+1);return[l>=u.m?u.n+' ✔ máximo':'Comprar '+u.n+' · '+c+' ⭐','buy:'+u.k,l>=u.m||sv.bank<c?' off':'']}).concat([['Volver','menu',' s']]))}
+function help(){ov('<h1>📖 Cómo jugar</h1><p>1. Mira la torre <b>META</b> y descubre el patrón que se repite.</p><p>2. Recoge los cristales de ese patrón <b>en orden</b>.</p><p>3. Cruza el aro con el número correcto de repeticiones.</p><p>⏱ Cada <b>150 puntos</b> ganas +4 s, y los relojes dorados dan +3 s. Al terminar, tus puntos pasan al banco de estrellas para comprar mejoras.</p><p>WASD o flechas: mover · Arrastrar: cámara · Espacio: saltar · Shift: correr · P o Esc: pausa</p>',[['Volver','menu',' s']])}
+function sett(){ov('<h1>⚙ Ajustes</h1><p>Fácil: patrones cortos. Difícil: patrones de hasta 4 colores y +50% de estrellas al banco.</p>',[['Fácil','d0',sv.diff===0?'':' s'],['Normal','d1',sv.diff===1?'':' s'],['Difícil','d2',sv.diff===2?'':' s'],[mute?'🔇 Sonido apagado':'🔊 Sonido activado','snd',' s'],['Volver','menu',' s']])}
+function togglePause(){if(!S.run)return;if(S.paused){S.paused=false;$('ov').style.display='none'}else{S.paused=true;ov('<h1>⏸ Pausa</h1><p>Puntos: <b>'+S.score+'</b> · Tiempo: <b>'+Math.ceil(S.t)+' s</b></p>',[['▶ Continuar','resume'],['Salir al menú','menu',' s']])}}
+$('ov').onclick=e=>{const b=e.target.closest('[data-a]');if(!b)return;const a=b.dataset.a;beep(600,.06);
+if(a==='play')start();else if(a==='menu')menu();else if(a==='shop')shop();else if(a==='help')help();else if(a==='set')sett();else if(a==='resume')togglePause();
+else if(a==='snd'){mute=!mute;$('mu').textContent=mute?'🔇':'🔊';sett()}
+else if(a.length===2&&a[0]==='d'){sv.diff=+a[1];save();sett()}
+else if(a.slice(0,4)==='buy:'){const u=UP.find(x=>x.k===a.slice(4)),l=sv.up[u.k],c=u.c*(l+1);if(l<u.m&&sv.bank>=c){sv.bank-=c;sv.up[u.k]++;save();beep(880,.2);shop('✔ ¡Mejora comprada!')}else shop('Te faltan estrellas o ya está al máximo.')}}
+function start(){const t0=45+5*sv.up.t;S={run:true,id:S.id+1,t:t0,t0,next:150,score:0,combo:1,round:0,towers:0,cool:0,tn:9};pl.position.set(0,0,6);yaw=0;vx=vz=vy=0;newRound();ui();$('plan').style.visibility='visible';$('ov').style.display='none';beep(520)}
+function end(){S.run=false;const s=S.score,nr=s>sv.best,gain=Math.round(s*(sv.diff===2?1.5:1));if(nr)sv.best=s;sv.bank+=gain;sv.games++;sv.towers+=S.towers;save();
+const tt=s>=450?'Maestro de los bucles':s>=250?'Ingeniero constructor':s>=100?'Constructor':'Aprendiz';beep(300,.5,'triangle');
+ov('<h1>¡Se acabó el tiempo!</h1><p>Rango: <b>'+tt+'</b></p><p>Puntos: <b>'+s+'</b> · Torres: <b>'+S.towers+'</b></p><p>'+(nr?'🏆 ¡Nuevo récord!':'Mejor puntaje: <b>'+sv.best+'</b>')+'</p><p>⭐ +<b>'+gain+'</b> al banco (total '+sv.bank+')</p>',[['Jugar otra vez','play'],['🛒 Tienda','shop',' s'],['Menú','menu',' s']])}
+function play(dt){S.t-=dt;if(S.t<=0){S.t=0;end();return}
+let ix=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0)+jx,iy=(keys.KeyW||keys.ArrowUp?1:0)-(keys.KeyS||keys.ArrowDown?1:0)-jy;
+const l=Math.hypot(ix,iy);if(l>1){ix/=l;iy/=l}
+const sp=(keys.ShiftLeft||keys.ShiftRight?14:9)*(1+.1*sv.up.s),s=Math.sin(yaw),c=Math.cos(yaw),k=Math.min(1,dt*10);
+vx+=((c*ix-s*iy)*sp-vx)*k;vz+=((-s*ix-c*iy)*sp-vz)*k;
+const P=pl.position;P.x+=vx*dt;P.z+=vz*dt;
+if((keys.Space||jr)&&P.y<=.01){vy=10;beep(420,.08)}jr=0;vy-=28*dt;P.y+=vy*dt;if(P.y<=0){P.y=0;vy=0}
+const push=(x,z,r)=>{const dx=P.x-x,dz=P.z-z,d=Math.hypot(dx,dz);if(d<r&&d>.001){P.x=x+dx/d*r;P.z=z+dz/d*r}};
+push(0,0,3.8);push(-8,0,2.4);trees.forEach(q=>push(q.x,q.z,q.r));
+const rr=Math.hypot(P.x,P.z);if(rr>37){P.x*=37/rr;P.z*=37/rr}
+const v=Math.hypot(vx,vz);if(v>.5){let d=Math.atan2(vx,vz)-pl.rotation.y;d=Math.atan2(Math.sin(d),Math.cos(d));pl.rotation.y+=d*Math.min(1,dt*12)}
+const w=Math.sin(T*(v>10?16:12))*Math.min(v/9,1)*.8;legs[0].rotation.x=w;legs[1].rotation.x=-w;arms[0].rotation.x=-w;arms[1].rotation.x=w;
+for(const o of pk.slice()){if(Math.hypot(o.g.position.x-P.x,o.g.position.z-P.z)<1.4+.6*sv.up.m&&P.y<2.2){
+if(o.c==='T'){const tb=3+sv.up.w;S.t=Math.min(S.t+tb,S.t0+15);toast('⏱ ¡+'+tb+' segundos!');burst(o.g.position.x,1.5,o.g.position.z,'#ffd23f');beep(880);take(o)}
+else if(S.prog.length<S.pat.length&&!S.lock){const need=S.pat[S.prog.length];
+if(o.c===need){S.prog.push(o.c);S.score+=10*S.combo;S.combo++;beep(500+S.prog.length*120);if(S.prog.length===S.pat.length)toast('¡Patrón listo! Cruza el aro con las repeticiones correctas')}
+else{S.combo=1;S.score=Math.max(0,S.score-5);toast('Ese no: ahora toca el '+NM[need],1);beep(160,.25,'sawtooth')}
+burst(o.g.position.x,1.5,o.g.position.z,CS[o.c]);take(o);ui()}}}
+S.tn-=dt;if(S.tn<=0){S.tn=rnd(9,14);if(!pk.some(o=>o.c==='T'))spawn('T')}
+if(!S.lock&&T>S.cool)for(const rg of rings)if(Math.hypot(P.x-rg.x,P.z-rg.z)<1.5&&P.y<3){S.cool=T+1.5;
+if(S.prog.length<S.pat.length)toast('Primero recoge el patrón completo',1);
+else if(rg.n===S.reps)win();
+else{S.combo=1;S.score=Math.max(0,S.score-10);toast('Cuenta otra vez: ¿cuántas veces se repite el patrón?',1);beep(160,.3,'sawtooth');ui()}
+break}
+while(S.score>=S.next){S.next+=150;S.t=Math.min(S.t+4,S.t0+15);toast('🌟 ¡'+(S.next-150)+' puntos! +4 segundos');beep(1000,.25)}
+$('tm').textContent=Math.ceil(S.t);$('tb').style.width=Math.min(100,S.t/S.t0*100)+'%';$('top').classList.toggle('low',S.t<10)}
+const clk=new THREE.Clock();
+function loop(){requestAnimationFrame(loop);const dt=Math.min(clk.getDelta(),.05);T+=dt;
+clouds.forEach(c=>{c.position.x+=dt*.8;if(c.position.x>110)c.position.x=-110});
+tw.children.forEach(m=>m.position.y+=(m.userData.ty-m.position.y)*Math.min(1,dt*9));
+for(let i=parts.length-1;i>=0;i--){const p=parts[i];p.l-=dt;p.vy-=20*dt;p.m.position.x+=p.vx*dt;p.m.position.y+=p.vy*dt;p.m.position.z+=p.vz*dt;p.m.scale.setScalar(Math.max(.01,p.l/.8));if(p.l<=0){sc.remove(p.m);p.m.material.dispose();parts.splice(i,1)}}
+pk.forEach(o=>{o.g.rotation.y+=dt*1.5;o.m.position.y=1.5+Math.sin(T*2+o.ph)*.25});
+const rd=S.run&&S.prog&&S.prog.length===S.pat.length&&!S.lock;
+rings.forEach(r=>{const m=r.tor.material;m.color.set(rd?0xffd54a:0x8899aa);m.emissive.set(rd?0xffc400:0x8899aa);m.emissiveIntensity=rd?.6+Math.sin(T*6)*.4:.2});
+if(S.run){if(!S.paused)play(dt)}else yaw+=dt*.15;
+const p=pl.position;cam.position.set(p.x+Math.sin(yaw)*Math.cos(pit)*dist,p.y+2+Math.sin(pit)*dist,p.z+Math.cos(yaw)*Math.cos(pit)*dist);cam.lookAt(p.x,p.y+1.8,p.z);
+ren.render(sc,cam)}
+// controles
+addEventListener('keydown',e=>{keys[e.code]=1;if(e.code==='KeyP'||e.code==='Escape')togglePause();if(e.code==='Space')jr=1;if(e.code==='Space'||e.code.startsWith('Arrow'))e.preventDefault()});
+addEventListener('keyup',e=>keys[e.code]=0);
+let drag=null;const cvs=ren.domElement;
+cvs.addEventListener('pointerdown',e=>{drag={id:e.pointerId,x:e.clientX,y:e.clientY};cvs.setPointerCapture(e.pointerId)});
+addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id)return;yaw-=(e.clientX-drag.x)*.006;pit=Math.max(.1,Math.min(1.2,pit+(e.clientY-drag.y)*.005));drag.x=e.clientX;drag.y=e.clientY});
+addEventListener('pointerup',e=>{if(drag&&e.pointerId===drag.id)drag=null});
+addEventListener('wheel',e=>{dist=Math.max(6,Math.min(18,dist+e.deltaY*.01))});
+const jz=$('joy'),kn=jz.firstElementChild;let jid=null;
+function jm(e){const r=jz.getBoundingClientRect(),dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2),m=r.width/2,l=Math.min(1,Math.hypot(dx,dy)/m),a=Math.atan2(dy,dx);jx=Math.cos(a)*l;jy=Math.sin(a)*l;kn.style.transform='translate('+jx*m*.6+'px,'+jy*m*.6+'px)'}
+jz.addEventListener('pointerdown',e=>{jid=e.pointerId;jz.setPointerCapture(jid);jm(e)});
+jz.addEventListener('pointermove',e=>{if(e.pointerId===jid)jm(e)});
+const je=e=>{if(e.pointerId===jid){jid=null;jx=jy=0;kn.style.transform=''}};jz.addEventListener('pointerup',je);jz.addEventListener('pointercancel',je);
+$('jb').addEventListener('pointerdown',()=>jr=1);
+$('mu').onclick=()=>{mute=!mute;$('mu').textContent=mute?'🔇':'🔊'};$('pa').onclick=togglePause;
+function rs(){const w=document.body.clientWidth,h=document.body.clientHeight;ren.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix()}
+addEventListener('resize',rs);rs();
+S.goal=[];S.pat=[];S.prog=[];ui();$('plan').style.visibility='hidden';
+ov('<h1>🏗️ La Torre de los Bucles</h1><p>Mira la torre <b>META</b>, descubre el patrón que se repite y recoge esos bloques <b>en orden</b>. Luego cruza el aro con el número correcto de repeticiones y la torre se construye sola.</p><p>Tienes <b>45 segundos</b>. Los relojes dorados dan +3 s, y los aciertos seguidos suben tu combo.</p><p>WASD o flechas: mover · Arrastra: girar cámara · Espacio: saltar · Shift: correr</p>','¡Jugar!');
+menu();loop();
+</script>
+</body>
+</html>
